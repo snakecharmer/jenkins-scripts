@@ -1,0 +1,40 @@
+read oldrev newrev refname
+redmine_integration=false
+redmineurl="test.website.com"
+redminekey="Pasdsadds123"
+jenkinsurl="jenkins.website.com"
+jenkinsauth="curl:pwd"
+jenkinsjob="jenkinsjobname"
+jenkinstestjob="testjob"
+buildtag="refs/tags/build"
+
+if ${redmine_integration} ; then
+	echo "update tickets on ${redmineurl}"
+	curl http://${redmineurl}/sys/fetch_changesets?key={redminekey} > /dev/null 2>&1
+fi
+# only commit/add command trigger a build/testbuild
+if [ "$oldrev" != "$newrev" ]
+        then
+        case "$refname" in
+                ${buildtag})
+                        echo "new tagged version"
+                        # annotated tag
+                        tagname=${refname##refs/tags/}
+                        mybranch=$(git branch --contains $newrev | tr -d ' ')
+                        # start jenkins
+                        echo "call jenkins $mybranch"
+                        case "$mybranch" in
+                                *master)
+				# create a new build
+                                curl -u ${jenkinsauth} -A 'Mozilla/5.0 (cURL)' -v http://${jenkinsurl}/job/${jenkinsjob}/build?delay=0sec > /dev/null 2>&1
+                                ;;
+                                *)
+                                ;;
+                        esac
+                ;;
+                *)
+                # run tests
+                curl -u ${jenkinsauth} -A 'Mozilla/5.0 (cURL)' -v http://${jenkinsurl}/job/${jenkinstestjob}/build?delay=0sec > /dev/null 2>&1
+                ;;
+        esac
+fi
